@@ -1,0 +1,10 @@
+# If you have a bunch of keys, you need IdentitiesOnly to enforce that ssh only tries the key you specify for that host.
+# Otherwise, you'll get spurious "Too many Authentication failures" errors.
+IdentitiesOnly yes 
+
+# Keep the connection open so you don't have to keep signing in.
+ControlMaster auto
+
+# Keep connection open for 600 seconds (10 minutes)
+ControlPersist 600
+ControlPath ~/.ssh/control:%h:%p:%r

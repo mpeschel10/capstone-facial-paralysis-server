@@ -4,7 +4,6 @@
 [ -z "$DOMAIN" ] && DOMAIN=fa.mpeschel10.com
 echo "Assuming domain name is $DOMAIN"
 SSH_ROOT="root@$DOMAIN"
-SSH_OPTIONS="-o IdentitiesOnly=yes -o ControlMaster=auto -o ControlPersist=600 -o ControlPath='~/.ssh/control:%h:%p:%r'"
 
 check_doctl_exists() {
     echo "Checking if doctl installed..."
@@ -172,13 +171,13 @@ get_ip() {
 }
 
 ensure_can_ssh() {
-    ssh -i "$KEY_PATH" $SSH_OPTIONS "$SSH_ROOT" "echo Access granted." && return
+    ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" "echo Access granted." && return
     ensure_droplet_exists
     
-    ssh -i "$KEY_PATH" $SSH_OPTIONS "$SSH_ROOT" "echo Access granted." && return
+    ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" "echo Access granted." && return
     DROPLET_IP=$(get_ip "$DROPLET_ID")
     SSH_ROOT="root@$DROPLET_IP"
-    ssh -i "$KEY_PATH" $SSH_OPTIONS "$SSH_ROOT" "echo Access granted." && {
+    ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" "echo Access granted." && {
         echo ""
         echo "WARNING:"
         echo "It looks like your domain name does not point to this droplet (possibly because the droplet is new)."
@@ -211,24 +210,39 @@ ensure_can_ssh() {
 
 
 remote() {
-    ssh -i "$KEY_PATH" $SSH_OPTIONS "$SSH_ROOT" $1
+    ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" $1
 }
 
 main() {
     KEY_PATH=$(ensure_local_ssh_key)
     ensure_can_ssh
     
-    remote "apt-get update"
-    remote "apt-get upgrade"
-    remote "apt-get install nginx nodejs git"
-
-    remote "mkdir -p /opt/facial-analytics"
-    remote "cd /opt/facial-analytics && git init && git branch -m main"
-
+    echo "Setting up our repo to talk to the droplet server..."
+    git config core.sshCommand "ssh -i '$KEY_PATH' -F ssh_config"
+    [ -z "$(git remote -v | grep facial-analytics)" ] && git remote add facial-analytics "ssh://$SSH_ROOT:/opt/facial-analytics"
     
-    # remote "rm -f /etc/nginx/sites-enabled/default"
-    # remote "ln -s /opt/facial-analytics/deploy/facial-analytics.conf /etc/nginx/sites-enabled/facial-analytics.conf"
-    # remote "nginx -t && nginx -s reload"
+    echo "Confirming git, nodejs, and nginx are all installed..."
+    remote "nginx -version && git --version && node --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git)"
+
+    echo "Confirming remote repo is present and ready..."
+    remote "mkdir -p /opt/facial-analytics"
+    remote "cd /opt/facial-analytics && [ ! -e .git ] && git init"
+    remote "cd /opt/facial-analytics && [ -z '\$(git branch | grep main)' ] && git branch -m main"
+    remote "cd /opt/facial-analytics && [ -z '\$(git branch | grep deploy)' ] && git checkout main && git checkout -b deploy"
+
+    echo "Attempting merge-push."
+    echo "If git pull fails, you will have to manually finish merging the remote main into your main, then run this script again."
+    OLD_BRANCH=$(git branch --show-current)
+    [ "$OLD_BRANCH" == main ] || {
+        git checkout main && git pull facial-analytics main && git merge "$OLD_BRANCH"
+    } && {
+        git push facial-analytics main
+    }
+    git checkout "$OLD_BRANCH"
+    
+    remote "rm -f /etc/nginx/sites-enabled/default"
+    remote "[ -e /etc/nginx/sites-enabled/facial-analytics.conf ] || ln -s /opt/facial-analytics/deploy/facial-analytics.conf /etc/nginx/sites-enabled/facial-analytics.conf"
+    remote "nginx -t && nginx -s reload"
 }
 
 main
