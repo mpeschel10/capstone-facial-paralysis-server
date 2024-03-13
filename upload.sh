@@ -247,7 +247,7 @@ try_push_main() {
     [ "$OLD_BRANCH" == main ] || {
         git checkout main
     } && {
-        git pull facial-analytics main && git push facial-analytics main
+        git pull facial-analytics main && git push facial-analytics main && remote "cd /opt/facial-analytics && git merge main"
     }
     [ "$OLD_BRANCH" == main ] || git checkout "$OLD_BRANCH"
     echo "Sync main complete."
