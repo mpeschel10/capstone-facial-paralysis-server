@@ -78,7 +78,7 @@ ensure_local_ssh_key() {
     [ ! -e "$KEY_PATH" ] && {
         1>&2 echo "You do not have an ssh key."
         1>&2 echo "To control the \"droplet\" virtual server (upload files and start the server etc.) you must create an ssh key".
-        ssh-keygen -f "$KEY_PATH"
+        ssh-keygen -f "$KEY_PATH" -N ""
         doctl compute ssh-key import "$HOSTNAME-facial-analytics-key" --public-key-file "$KEY_PATH.pub"
     }
     echo "$KEY_PATH"
@@ -213,23 +213,25 @@ remote() {
     ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" $1
 }
 
-main() {
-    KEY_PATH=$(ensure_local_ssh_key)
-    ensure_can_ssh
-    
+
+ensure_can_git_push() {
     echo "Setting up our repo to talk to the droplet server..."
     git config core.sshCommand "ssh -i '$KEY_PATH' -F ssh_config"
     [ -z "$(git remote -v | grep facial-analytics)" ] && git remote add facial-analytics "ssh://$SSH_ROOT:/opt/facial-analytics"
-    
-    echo "Confirming git, nodejs, and nginx are all installed..."
-    remote "nginx -version && git --version && node --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git)"
+}
 
+ensure_remote_repo_exists() {
     echo "Confirming remote repo is present and ready..."
     remote "mkdir -p /opt/facial-analytics"
     remote "cd /opt/facial-analytics && [ ! -e .git ] && git init"
     remote "cd /opt/facial-analytics && [ -z '\$(git branch | grep main)' ] && git branch -m main"
     remote "cd /opt/facial-analytics && [ -z '\$(git branch | grep deploy)' ] && git checkout main && git checkout -b deploy"
+}
 
+try_push_main() {
+    return
+    # TODO Check if main actually has new commits
+    # TODO Scrap the automagic merging; that should be manual for clarity.
     echo "Attempting merge-push."
     echo "If git pull fails, you will have to manually finish merging the remote main into your main, then run this script again."
     OLD_BRANCH=$(git branch --show-current)
@@ -239,10 +241,45 @@ main() {
         git push facial-analytics main
     }
     git checkout "$OLD_BRANCH"
-    
+}
+
+install_nginx() {
     remote "rm -f /etc/nginx/sites-enabled/default"
     remote "[ -e /etc/nginx/sites-enabled/facial-analytics.conf ] || ln -s /opt/facial-analytics/deploy/facial-analytics.conf /etc/nginx/sites-enabled/facial-analytics.conf"
     remote "nginx -t && nginx -s reload"
+}
+
+ensure_ssl_certificate() {
+    [ "$SSH_ROOT" != "root@$DOMAIN" ] && {
+        echo "You cannot get a Let's Encrypt security certificate for an IP address."
+        echo "If you want to serve encrypted traffic over HTTPS, you must set up a domain name."
+        echo "Skipping checking security certificates..."
+        return
+    }
+    
+    remote "[ -e /etc/letsencrypt/live/fa.mpeschel10.com/fullchain.pem ]" && return
+    
+    echo "Next, we will get a security certificate."
+    remote "certbot --nginx"
+}
+
+main() {
+    KEY_PATH=$(ensure_local_ssh_key)
+    ensure_can_ssh
+    echo "Login command is:"
+    echo ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" $1
+    echo ""
+    
+    ensure_can_git_push
+    
+    echo "Confirming git, nodejs, and nginx are all installed..."
+    remote "nginx -version && git --version && node --version && certbot --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git certbot python3-certbot-nginx)"
+
+    ensure_remote_repo_exists
+    try_push_main
+    
+    install_nginx
+    ensure_ssl_certificate
 }
 
 main

@@ -1,3 +1,5 @@
+Test reclaiming an existing instance without deleting it
+    that is, delete local ssh key
 Think through permutations of failure states
 Startup script does not handle case where we have a key down here but that key is not uploaded
 Thorough test (no project, no nothing)
