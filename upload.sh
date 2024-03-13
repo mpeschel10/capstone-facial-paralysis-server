@@ -229,18 +229,28 @@ ensure_remote_repo_exists() {
 }
 
 try_push_main() {
-    return
-    # TODO Check if main actually has new commits
-    # TODO Scrap the automagic merging; that should be manual for clarity.
-    echo "Attempting merge-push."
+    git fetch facial-analytics
+    local REV_COUNT=$(git rev-list --count facial-analytics/main..main)
+    [ REV_COUNT == "0" ] && return
+    
+    echo "main branch has a commit difference. Attempting to sync..."
+    local DIFFS="$(git diff --name-only HEAD)"
+    [ ! -z $DIFFS ] && {
+        echo "Oops! You have modifications on your current branch."
+        echo "If you want to sync main now, either commit, discard, or stash your modifications."
+        echo "Skipping main sync..."
+        return
+    }
+
     echo "If git pull fails, you will have to manually finish merging the remote main into your main, then run this script again."
     OLD_BRANCH=$(git branch --show-current)
     [ "$OLD_BRANCH" == main ] || {
-        git checkout main && git pull facial-analytics main && git merge "$OLD_BRANCH"
+        git checkout main
     } && {
-        git push facial-analytics main
+        git pull facial-analytics main && git push facial-analytics main
     }
-    git checkout "$OLD_BRANCH"
+    [ "$OLD_BRANCH" == main ] || git checkout "$OLD_BRANCH"
+    echo "Sync main complete."
 }
 
 install_nginx() {
