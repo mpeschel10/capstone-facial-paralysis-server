@@ -231,7 +231,7 @@ ensure_remote_repo_exists() {
 try_push_main() {
     git fetch facial-analytics
     local REV_COUNT=$(git rev-list --count facial-analytics/main..main)
-    [ REV_COUNT == "0" ] && return
+    [ "$REV_COUNT" == "0" ] && return
     
     echo "main branch has a commit difference. Attempting to sync..."
     local DIFFS="$(git diff --name-only HEAD)"
