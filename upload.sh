@@ -248,7 +248,7 @@ try_push_main() {
     [ "$OLD_BRANCH" == main ] || {
         git checkout main
     } && {
-        git pull facial-analytics main && git push facial-analytics main && remote "cd /opt/facial-analytics && git merge main"
+        git pull facial-analytics main && git push facial-analytics main && remote "cd /opt/facial-analytics && git checkout -f deploy && git merge main"
     }
     [ "$OLD_BRANCH" == main ] || git checkout "$OLD_BRANCH"
     [ "$NPM_REV_COUNT" == "0" ] || remote "cd /opt/facial-analytics && NODE_ENV=production npm install"
@@ -300,6 +300,8 @@ main() {
     enable_nginx_facial_analytics_config
     enable_systemd_facial_analytics_config
     ensure_ssl_certificate
+
+    [ -e secrets/facial-analytics-key.json ] && scp -i "$KEY_PATH" -F ssh_config secrets/facial-analytics-key.json "$SSH_ROOT:/opt/facial-analytics/secrets"
 }
 
 main
