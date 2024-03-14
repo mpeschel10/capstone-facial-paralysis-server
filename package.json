@@ -17,5 +17,8 @@
   "devDependencies": {
     "@firebase/app": "^0.9.28",
     "@firebase/auth": "^1.6.1"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
   }
 }

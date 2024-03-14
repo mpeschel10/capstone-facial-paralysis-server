@@ -1,4 +1,5 @@
 const SERVER_URL = 'http://127.0.0.1:17447'
+// const SERVER_URL = 'https://fa.mpeschel10.com'
 
 import assert from 'node:assert';
 
@@ -22,7 +23,7 @@ assert.deepEqual(mGreyTokenResult.claims.roles, ["a", "c"]);
 
 const idToken = await mGreyCredential.user.getIdToken();
 
-const response = await fetch(SERVER_URL + "/api/users", {
+const response = await fetch(SERVER_URL + "/users.json", {
     method:'POST',
     body: JSON.stringify({
         "token": idToken,
@@ -34,6 +35,7 @@ const response = await fetch(SERVER_URL + "/api/users", {
     }),
 });
 
+console.log('Status code:', response.status);
 console.log('Response headers:', Object.fromEntries(response.headers));
 console.log('Response body:', await response.text());
 console.log('');
