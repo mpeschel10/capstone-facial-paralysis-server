@@ -127,7 +127,8 @@ async function POST_users_json(req, res) {
         return;
     }
 
-    if (!claims.roles.includes('c')) {
+    console.log('Requested by ', claims, ' to create account ', newUser);
+    if (!claims.roles?.includes('c')) {
         res.statusCode = 403;
         res.end("You must be a clinician to create a new account.");
         return;
@@ -180,7 +181,8 @@ async function DELETE_users_json(req, res) {
         return;
     }
 
-    if (!claims.roles.includes('c')) {
+    console.log('Requested by ', claims, ' to delete account ', uid, email);
+    if (!claims.roles?.includes('c')) {
         res.statusCode = 403;
         res.end("You must be a clinician to delete an account.");
         return;
