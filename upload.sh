@@ -232,6 +232,7 @@ try_push_main() {
     git fetch facial-analytics
     local REV_COUNT=$(git rev-list --count facial-analytics/main..main)
     [ "$REV_COUNT" == "0" ] && return
+    local NPM_REV_COUNT=$(git rev-list --count facial-analytics/main..main package.json)
     
     echo "main branch has a commit difference. Attempting to sync..."
     local DIFFS="$(git diff --name-only HEAD)"
@@ -250,13 +251,20 @@ try_push_main() {
         git pull facial-analytics main && git push facial-analytics main && remote "cd /opt/facial-analytics && git merge main"
     }
     [ "$OLD_BRANCH" == main ] || git checkout "$OLD_BRANCH"
+    [ "$NPM_REV_COUNT" == "0" ] || remote "cd /opt/facial-analytics && NODE_ENV=production npm install"
     echo "Sync main complete."
 }
 
-install_nginx() {
+enable_nginx_facial_analytics_config() {
     remote "rm -f /etc/nginx/sites-enabled/default"
     remote "[ -e /etc/nginx/sites-enabled/facial-analytics.conf ] || ln -s /opt/facial-analytics/deploy/facial-analytics.conf /etc/nginx/sites-enabled/facial-analytics.conf"
     remote "nginx -t && nginx -s reload"
+}
+
+enable_systemd_facial_analytics_config() {
+    remote "[ -e /etc/systemd/system/facial-analytics.service ] || ln -s /opt/facial-analytics/deploy/facial-analytics.service /etc/systemd/system/facial-analytics.service"
+    remote "systemctl enable --now facial-analytics.service"
+    remote "systemctl reload facial-analytics.service"
 }
 
 ensure_ssl_certificate() {
@@ -283,12 +291,13 @@ main() {
     ensure_can_git_push
     
     echo "Confirming git, nodejs, and nginx are all installed..."
-    remote "nginx -version && git --version && node --version && certbot --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git certbot python3-certbot-nginx)"
+    remote "nginx -version && git --version && node --version && certbot --version && npm --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git certbot python3-certbot-nginx npm)"
 
     ensure_remote_repo_exists
     try_push_main
     
-    install_nginx
+    enable_nginx_facial_analytics_config
+    enable_systemd_facial_analytics_config
     ensure_ssl_certificate
 }
 

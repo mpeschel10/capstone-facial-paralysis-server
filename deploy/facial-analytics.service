@@ -1,0 +1,9 @@
+[Unit]
+Description=Backend auth server for an iOS Application for Grading Facial Paralysis Outcomes; port 17447
+
+[Service]
+WorkingDirectory=/opt/facial-analytics
+ExecStart=npm start
+
+[Install]
+WantedBy=multi-user.target
