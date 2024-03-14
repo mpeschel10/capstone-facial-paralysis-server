@@ -264,7 +264,7 @@ enable_nginx_facial_analytics_config() {
 enable_systemd_facial_analytics_config() {
     remote "[ -e /etc/systemd/system/facial-analytics.service ] || ln -s /opt/facial-analytics/deploy/facial-analytics.service /etc/systemd/system/facial-analytics.service"
     remote "systemctl enable --now facial-analytics.service"
-    remote "systemctl reload facial-analytics.service"
+    remote "systemctl restart facial-analytics.service"
 }
 
 ensure_ssl_certificate() {
@@ -290,8 +290,9 @@ main() {
     
     ensure_can_git_push
     
-    echo "Confirming git, nodejs, and nginx are all installed..."
+    echo "Confirming git, nodejs, npm, certbot, and nginx are all installed..."
     remote "nginx -version && git --version && node --version && certbot --version && npm --version || (apt-get update && apt-get upgrade && apt-get install nginx nodejs git certbot python3-certbot-nginx npm)"
+    echo ""
 
     ensure_remote_repo_exists
     try_push_main
