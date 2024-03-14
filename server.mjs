@@ -41,7 +41,7 @@ async function verifyIdToken(token) {
     try {
         return [ undefined, await auth.verifyIdToken(token) ];
     } catch (error) {
-        return [undefined, error];
+        return [ error, undefined ];
     }
 }
 
