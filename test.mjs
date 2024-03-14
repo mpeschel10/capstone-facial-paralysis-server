@@ -22,7 +22,7 @@ assert.deepEqual(mGreyTokenResult.claims.roles, ["a", "c"]);
 
 const idToken = await mGreyCredential.user.getIdToken();
 
-fetch(SERVER_URL + "/api/users", {
+const response = await fetch(SERVER_URL + "/api/users", {
     method:'POST',
     body: JSON.stringify({
         "token": idToken,
@@ -34,6 +34,18 @@ fetch(SERVER_URL + "/api/users", {
     }),
 });
 
-const jDonahueCredential = await signInWithEmailAndPassword(auth, 'mgrey@gmail.com', 'password');
+console.log('Response headers:', Object.fromEntries(response.headers));
+console.log('Response body:', await response.text());
+console.log('');
+
+const jDonahueCredential = await signInWithEmailAndPassword(auth, 'jdonahue@gmail.com', 'password');
 const jDonahueTokenResult = await jDonahueCredential.user.getIdTokenResult();
 assert.deepEqual(jDonahueTokenResult.claims.roles, ["c"]);
+
+// TODO
+// Confirm it rejects expired token e.g.
+// eyJhbGciOiJSUzI1NiIsImtpZCI6IjYwOWY4ZTMzN2ZjNzg1NTE0ZTExMGM2ZDg0N2Y0M2M3NDM1M2U0YWYiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiTWVyZWRpdGggR3JleSIsInJvbGVzIjpbImEiLCJjIl0sImlzcyI6Imh0dHBzOi8vc2VjdXJldG9rZW4uZ29vZ2xlLmNvbS9mYWNpYWwtYW5hbHl0aWNzLWY4YjllIiwiYXVkIjoiZmFjaWFsLWFuYWx5dGljcy1mOGI5ZSIsImF1dGhfdGltZSI6MTcxMDM5MDc2NiwidXNlcl9pZCI6ImdSbm5aR01EVU9PVGhIOEpkYmZ1Iiwic3ViIjoiZ1JublpHTURVT09UaEg4SmRiZnUiLCJpYXQiOjE3MTAzOTA3NjYsImV4cCI6MTcxMDM5NDM2NiwiZW1haWwiOiJtZ3JleUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsibWdyZXlAZ21haWwuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.Y6-XZ1MnXjf6btAEhC1qtDSrTXnlwzka7fmcmUJvJAf6DPZv676qaCf96Bt9LajCkuj1ekptQeGoaIjcVI3RIJKvyk17wQiga6LYL34p6mJku5i9PIu7KMXmwLGzNr0j3vlZ21G4RWJr1LkcBQGtWpZXwFk46ssqV8yCy1rXzjepi9hQuivbgfc0YZU7g3JmwXHoQYSjPMeTh4wtB_h2BFoaSBf1vMzI3KuhWhdztdTpWnptmDV17jGkBYsxW5Upl0IfUBWLg2NAe-cVcZBdTpc5qQDBh-xzT__-7wCTYcUmU4bOtYJ5uTUcjNh-VINcLcZAy1FYVS9oMq8S1Ze-HA
+// Confirm it rejects nonsens token e.g.
+// asdofiajfoiwjefoiajefwoweijf
+// Confirm it rejects valid token from non-admin user
+// Confirm it can create both patients and clinicians

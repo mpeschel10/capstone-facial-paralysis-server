@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Auth server for an iOS Application for Grading Facial Paralysis Outcomes",
   "scripts": {
-    "test": "node test.mjs"
+    "test": "node test.mjs",
+    "start": "node server.mjs"
   },
   "keywords": [
     "mobile",
