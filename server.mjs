@@ -201,10 +201,10 @@ async function DELETE_users_json(req, res) {
 async function users_json(req, res) {
     switch (req.method) {
         case 'POST':
-            POST_users_json(req, res);
+            await POST_users_json(req, res);
             break;
         case 'DELETE':
-            DELETE_users_json(req, res);
+            await DELETE_users_json(req, res);
             break;
         default:
             res.statusCode = 405;
@@ -219,7 +219,7 @@ new Server(async (req, res) => {
     
         switch (req.url) {
             case '/users.json':
-                users_json(req, res);
+                await users_json(req, res);
                 break;
             default:
                 res.statusCode = 404;
