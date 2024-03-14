@@ -127,7 +127,6 @@ async function POST_users_json(req, res) {
         return;
     }
 
-    console.log('Requested by ', claims, ' to create account ', newUser);
     if (!claims.roles?.includes('c')) {
         res.statusCode = 403;
         res.end("You must be a clinician to create a new account.");
@@ -219,6 +218,7 @@ new Server(async (req, res) => {
     try {
         console.log(req.method, req.url);
     
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
         switch (req.url) {
             case '/users.json':
                 await users_json(req, res);
