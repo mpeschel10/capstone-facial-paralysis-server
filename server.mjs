@@ -45,6 +45,53 @@ async function verifyIdToken(token) {
     }
 }
 
+async function verifyClinician(req, res) {
+    const token = req.searchParams.get('token');
+    if (token === undefined) {
+        res.statusCode = 401;
+        res.end("Request must have token query parameter where token = await signInWithEmailAndPassword(...).user.getIdToken()");
+        return false;
+    }
+    
+    const [ authError, claims ] = await verifyIdToken(token);
+    if (authError) {
+        res.statusCode = 401;
+        res.end("Invalid token. Might be expired, or you might be uploading the wrong thing, or wrapping it in quotes, or something.");
+        return false;
+    }
+
+    if (!claims.roles?.includes('c')) {
+        res.statusCode = 403;
+        res.end("You must be a clinician to update an account.");
+        return false;
+    }
+    return true;
+}
+
+async function ensureUid(req, res) {
+    try {
+        const uid = req.searchParams.get('uid');
+        if (uid) return uid;
+        const email = req.searchParams.get('email');
+        if (email) return await auth.getUserByEmail(email).uid;
+
+        res.statusCode = 400;
+        res.end("You must provide query parameters for either uid or email.");
+        return undefined;
+    } catch (error) {
+        res.statusCode = 400;
+        res.end(error.message);
+        return undefined;
+    }
+}
+
+function getUser(uid, email) {
+    console.log("Getting user by uid ", uid, " or email ", email);
+    if (uid) return auth.getUser(uid);
+    if (email) return auth.getUserByEmail(email);
+    throw new Error('You must define query parameters for either uid or email.');
+}
+
 async function createUser(newUser) {
     if (newUser === undefined) return [ new Error('user must be defined.'), undefined];
     if (newUser.email === undefined) return [ new Error('user.email must be defined.'), undefined];
@@ -90,6 +137,45 @@ async function deleteUser(uid, email) {
         return [ undefined, uid ];
     } catch (error) {
         return [ error, uid ];
+    }
+}
+
+async function GET_users_json(req, res) {
+    const token = req.searchParams.get('token');
+    const uid = req.searchParams.get('uid');
+    const email = req.searchParams.get('email');
+    
+    if (token === undefined) {
+        res.statusCode = 401;
+        res.end("Request must have token query parameter where token = await signInWithEmailAndPassword(...).user.getIdToken()");
+        return;
+    }
+    
+    const [ authError, claims ] = await verifyIdToken(token);
+    if (authError) {
+        res.statusCode = 401;
+        res.end("Invalid token. Might be expired, or you might be uploading the wrong thing, or wrapping it in quotes, or something.");
+        return;
+    }
+
+    // console.log('Requested by ', claims, ' to get account ', uid, email);
+    if (!claims.roles?.includes('c')) {
+        res.statusCode = 403;
+        res.end("You must be a clinician to read an arbitrary account.");
+        return;
+    }
+
+    try {
+        const result = await getUser(uid, email);
+        console.log('Got user', result);
+
+        res.statusCode = 200;
+        res.end(JSON.stringify(result));
+        return;
+    } catch (error) {
+        res.statusCode = 400;
+        res.end(error.toString());
+        return;
     }
 }
 
@@ -143,6 +229,46 @@ async function POST_users_json(req, res) {
 
     res.statusCode = 200;
     res.end(JSON.stringify(userRecord.uid));
+}
+
+async function PUT_users_json(req, res) {
+    if (!verifyClinician(req, res)) return;
+
+    let bodyString;
+    try {
+        bodyString = await awfulReadAll(req);
+    } catch (error) {
+        res.statusCode = 500;
+        res.end();
+        return;
+    }
+
+    let bodyJson;
+    try {
+        bodyJson = JSON.parse(bodyString);
+    } catch (error) {
+        res.statusCode = 400;
+        res.end("You must provide a JSON body containing the updated information for the user.");
+        return;
+    }
+
+    const uid = await ensureUid(req, res);
+    if (uid === undefined) return;
+    
+    try {
+        await auth.updateUser(uid, bodyJson);
+        if (bodyJson.customClaims) {
+            await auth.setCustomUserClaims(uid, bodyJson.customClaims);
+        }
+
+        res.statusCode = 204;
+        res.end();
+        return;
+    } catch (error) {
+        res.statusCode = 400;
+        res.end(error.toString());
+        return;
+    }
 }
 
 async function DELETE_users_json(req, res) {
@@ -201,8 +327,14 @@ async function DELETE_users_json(req, res) {
 
 async function users_json(req, res) {
     switch (req.method) {
+        case 'GET':
+            await GET_users_json(req, res);
+            break;
         case 'POST':
             await POST_users_json(req, res);
+            break;
+        case 'PUT':
+            await PUT_users_json(req, res);
             break;
         case 'DELETE':
             await DELETE_users_json(req, res);
@@ -216,10 +348,23 @@ async function users_json(req, res) {
 
 new Server(async (req, res) => {
     try {
-        console.log(req.method, req.url);
-    
+        let url = req.url;
+        if (!url.startsWith('http://')) {
+            if (url.startsWith('/')) {
+                url = 'localhost' + url;
+            }
+            url = 'http://' + url;
+        }
+        url = new URL(url);
+        
+        const pathname = url.pathname;
+        const searchParams = url.searchParams;
+        req.pathname = pathname;
+        req.searchParams = searchParams;
+        console.log(req.method, req.pathname);
+        
         res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
-        switch (req.url) {
+        switch (req.pathname) {
             case '/users.json':
                 await users_json(req, res);
                 break;

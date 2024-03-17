@@ -20,68 +20,142 @@ const auth = initializeAuth(app);
 const mGreyCredential = await signInWithEmailAndPassword(auth, 'mgrey@gmail.com', 'password');
 const mGreyTokenResult = await mGreyCredential.user.getIdTokenResult();
 assert.deepEqual(mGreyTokenResult.claims.roles, ["a", "c"]);
+console.log("Sanity test OK");
 
 const idToken = await mGreyCredential.user.getIdToken();
 
 async function debugFetch(url, options) {
     const response = await fetch(url, options);
-    // console.log('Status code:', response.status);
-    // console.log('Response headers:', Object.fromEntries(response.headers));
-    // console.log('Response body:', await response.text());
-    // console.log('');
+
+    if (false) {
+        console.log('Status code:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers));
+        response.rawText = await response.text()
+        console.log('Response body:', response.rawText);
+        response.json = () => JSON.parse(response.rawText);
+        console.log('');
+    }
+    
+    return response;
 }
 
-await debugFetch(SERVER_URL + "/users.json",  {
-    method:'DELETE',
-    body: JSON.stringify({
-        "token": idToken,
-        "user": {
-            "email": "jdonahue@gmail.com",
-        }
-    }),
-});
+async function cleanup() {
+    await debugFetch(SERVER_URL + "/users.json",  {
+        method:'DELETE',
+        body: JSON.stringify({
+            "token": idToken,
+            "user": {
+                "email": "jdonahue@gmail.com",
+            }
+        }),
+    });
+    
+    await debugFetch(SERVER_URL + "/users.json",  {
+        method:'DELETE',
+        body: JSON.stringify({
+            "token": idToken,
+            "user": {
+                "email": "rmyrtle@gmail.com",
+            }
+        }),
+    });
+}
 
-await debugFetch(SERVER_URL + "/users.json",  {
-    method:'DELETE',
-    body: JSON.stringify({
-        "token": idToken,
-        "user": {
-            "email": "rmyrtle@gmail.com",
-        }
-    }),
-});
+async function testCreateClinician() {
+    await debugFetch(SERVER_URL + "/users.json", {
+        method:'POST',
+        body: JSON.stringify({
+            "token": idToken,
+            "user": {
+                "email": "jdonahue@gmail.com",
+                "password": "password",
+                "roles": ["c"],
+            }
+        }),
+    });
+    
+    const jDonahueCredential = await signInWithEmailAndPassword(auth, 'jdonahue@gmail.com', 'password');
+    const jDonahueTokenResult = await jDonahueCredential.user.getIdTokenResult();
+    assert.deepEqual(jDonahueTokenResult.claims.roles, ["c"]);
+    console.log("Create clinician OK");
+}
 
-await debugFetch(SERVER_URL + "/users.json", {
-    method:'POST',
-    body: JSON.stringify({
-        "token": idToken,
-        "user": {
-            "email": "jdonahue@gmail.com",
-            "password": "password",
-            "roles": ["c"],
-        }
-    }),
-});
+const testPatientData = {
+    email: "rmyrtle@gmail.com",
+    displayName: "Rachel Myrtle",
+    password: "password",
+};
 
-const jDonahueCredential = await signInWithEmailAndPassword(auth, 'jdonahue@gmail.com', 'password');
-const jDonahueTokenResult = await jDonahueCredential.user.getIdTokenResult();
-assert.deepEqual(jDonahueTokenResult.claims.roles, ["c"]);
+async function testCreatePatient() {
+    await debugFetch(SERVER_URL + "/users.json", {
+        method:'POST',
+        body: JSON.stringify({
+            "token": idToken,
+            "user": Object.assign({
+                roles: ["p"],
+            }, testPatientData),
+        }),
+    });
+    
+    const rMyrtleCredential = await signInWithEmailAndPassword(auth, 'rmyrtle@gmail.com', 'password');
+    const rMyrtleTokenResult = await rMyrtleCredential.user.getIdTokenResult();
+    assert.deepEqual(rMyrtleTokenResult.claims.roles, ["p"]);
+    console.log("Create patient OK");
+}
 
-await debugFetch(SERVER_URL + "/users.json", {
-    method:'POST',
-    body: JSON.stringify({
-        "token": idToken,
-        "user": {
-            "email": "rmyrtle@gmail.com",
-            "password": "password",
-            "roles": ["p"],
-        }
-    }),
-});
+async function testGetAccount() {
+    const params = new URLSearchParams({
+        token: idToken,
+        email: testPatientData.email,
+    });
+    const requestUrl = SERVER_URL + "/users.json" + "?" + params;
+    // console.log("Fetching", requestUrl);
+    const response = await debugFetch(requestUrl, {
+        method: 'GET',
+    });
+    const user = await response.json();
+    assert.strictEqual(user.displayName, testPatientData.displayName);
+    console.log("Get account OK");
+}
 
-const rMyrtleCredential = await signInWithEmailAndPassword(auth, 'rmyrtle@gmail.com', 'password');
-const rMyrtleTokenResult = await rMyrtleCredential.user.getIdTokenResult();
-assert.deepEqual(rMyrtleTokenResult.claims.roles, ["p"]);
+function getUser(uid, email) {
+    const parameters = {token: idToken};
+    if (uid) parameters.uid = uid;
+    else if (email) parameters.email = email;
+    // console.log(parameters);
+    return debugFetch(
+        SERVER_URL + "/users.json" + "?" + new URLSearchParams(parameters), {
+        method: 'GET',
+    }).then(result => result.json());
+}
+
+async function testUpdateAccount() {
+    const initialUserValue = await getUser(undefined, testPatientData.email);
+    assert.strictEqual(initialUserValue.displayName, testPatientData.displayName);
+    
+    const newName = 'Rebecca Myrtle';
+    const parameters = {
+        token: idToken,
+        uid: initialUserValue.uid,
+    };
+    const body = JSON.stringify({
+        displayName: newName,
+        customClaims: {roles: ['c']},
+    });
+    
+    await debugFetch(
+        SERVER_URL + "/users.json" + "?" + new URLSearchParams(parameters), {
+        method: 'PUT',
+        body
+    });
+
+    const finalUserValue = await getUser(initialUserValue.uid, undefined);
+    // console.log(finalUserValue);
+    assert.strictEqual(finalUserValue.displayName, newName);
+    assert.strictEqual(finalUserValue.email, testPatientData.email);
+    assert.deepStrictEqual(finalUserValue.customClaims.roles, ['c']);
+    console.log("Set account OK");
+}
 
 // TODO
 // Confirm it rejects expired token e.g.
@@ -90,3 +164,13 @@ assert.deepEqual(rMyrtleTokenResult.claims.roles, ["p"]);
 // asdofiajfoiwjefoiajefwoweijf
 // Confirm it rejects valid token from non-admin user
 // Confirm it can create both patients and clinicians
+
+async function main() {
+    await cleanup();
+    await testCreateClinician();
+    await testCreatePatient();
+    await testGetAccount();
+    await testUpdateAccount();
+}
+
+await main();
