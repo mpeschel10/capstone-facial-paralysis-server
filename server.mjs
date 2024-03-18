@@ -47,14 +47,16 @@ async function verifyIdToken(token) {
 
 async function verifyClinician(req, res) {
     const token = req.searchParams.get('token');
-    if (token === undefined) {
+    if (token === null) {
         res.statusCode = 401;
         res.end("Request must have token query parameter where token = await signInWithEmailAndPassword(...).user.getIdToken()");
         return false;
     }
     
-    const [ authError, claims ] = await verifyIdToken(token);
-    if (authError) {
+    let claims = undefined;
+    try {
+        claims = await auth.verifyIdToken(token);
+    } catch (error) {
         res.statusCode = 401;
         res.end("Invalid token. Might be expired, or you might be uploading the wrong thing, or wrapping it in quotes, or something.");
         return false;
@@ -232,7 +234,7 @@ async function POST_users_json(req, res) {
 }
 
 async function PUT_users_json(req, res) {
-    if (!verifyClinician(req, res)) return;
+    if (!await verifyClinician(req, res)) return;
 
     let bodyString;
     try {
@@ -325,6 +327,13 @@ async function DELETE_users_json(req, res) {
     res.end();
 }
 
+async function OPTIONS_users_json(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.Origin ?? '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.statusCode = 204;
+    res.end();
+}
+
 async function users_json(req, res) {
     switch (req.method) {
         case 'GET':
@@ -338,6 +347,9 @@ async function users_json(req, res) {
             break;
         case 'DELETE':
             await DELETE_users_json(req, res);
+            break;
+        case 'OPTIONS':
+            await OPTIONS_users_json(req, res);
             break;
         default:
             res.statusCode = 405;
