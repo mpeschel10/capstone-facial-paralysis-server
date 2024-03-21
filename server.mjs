@@ -4,6 +4,11 @@ import path from 'node:path';
 
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+
+import * as notifications from './notifications.mjs';
+
+import { Expo } from 'expo-server-sdk';
 
 if (! process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     process.env.GOOGLE_APPLICATION_CREDENTIALS = 'secrets/facial-analytics-key.json';
@@ -37,6 +42,25 @@ function awfulReadAll(stream) {
     });
 }
 
+async function tryReadBodyJson(req, res) {
+    let bodyString;
+    try {
+        bodyString = await awfulReadAll(req);
+    } catch (error) {
+        res.statusCode = 500;
+        res.end();
+        throw error;
+    }
+
+    try {
+        return JSON.parse(bodyString);
+    } catch (error) {
+        res.statusCode = 400;
+        res.end("You must provide a parseable JSON body to this endpoint.");
+        throw error;
+    }
+}
+
 async function verifyIdToken(token) {
     try {
         return [ undefined, await auth.verifyIdToken(token) ];
@@ -68,6 +92,23 @@ async function verifyClinician(req, res) {
         return false;
     }
     return true;
+}
+
+async function verifyLoggedIn(req, res) {
+    const token = req.searchParams.get('token');
+    if (token === null) {
+        res.statusCode = 401;
+        res.end("Request must have token query parameter where token = await signInWithEmailAndPassword(...).user.getIdToken()");
+        return false;
+    }
+    
+    try {
+        return await auth.verifyIdToken(token);
+    } catch (error) {
+        res.statusCode = 401;
+        res.end("Invalid token. Might be expired, or you might be uploading the wrong thing, or wrapping it in quotes, or something.");
+        return false;
+    }
 }
 
 async function ensureUid(req, res) {
@@ -358,6 +399,75 @@ async function users_json(req, res) {
     }
 }
 
+async function PUT_notifications_json(req, res) {
+    const claims = await verifyLoggedIn(req, res);
+    if (!claims) return;
+
+    let pushToken;
+    try {
+        pushToken = await tryReadBodyJson(req, res);
+    } catch (error) {
+        return;
+    }
+    
+    if (!Expo.isExpoPushToken(pushToken)) {
+        res.statusCode = 400;
+        res.end(
+            'You must give this endpoint an Expo push token in your request body.\r\n' +
+            'A push token is a string of the form "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"\r\n' +
+            ' which can usually be obtained like (await Notifications.getExpoPushTokenAsync({projectId})).data'
+        );
+        return;
+    }
+
+    console.log(`Registering push token ${pushToken} for uid ${claims.uid}`);
+    notifications.register(pushToken, claims.uid);
+    res.statusCode = 204;
+    res.end();
+}
+
+async function DELETE_notifications_json(req, res) {
+    const claims = await verifyLoggedIn(req, res);
+    if (!claims) return;
+
+    let pushToken;
+    try {
+        pushToken = await tryReadBodyJson(req, res);
+    } catch (error) {
+        return;
+    }
+    
+    if (!Expo.isExpoPushToken(pushToken)) {
+        res.statusCode = 400;
+        res.end(
+            'You must give this endpoint an Expo push token in your request body.\r\n' +
+            'A push token is a string of the form "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"\r\n' +
+            ' which can usually be obtained like (await Notifications.getExpoPushTokenAsync({projectId})).data'
+        );
+        return;
+    }
+
+    console.log(`Unregistering push token ${pushToken}`);
+    notifications.unregister(pushToken);
+    res.statusCode = 204;
+    res.end();
+}
+
+async function notifications_json(req, res) {
+    switch (req.method) {
+        case 'PUT':
+            await PUT_notifications_json(req, res);
+            break;
+        case 'DELETE':
+            await DELETE_notifications_json(req, res);
+            break;
+        default:
+            res.statusCode = 405;
+            res.end(`Method ${req.method} not supported for this endpoint.`);
+            return;
+    }
+}
+
 new Server(async (req, res) => {
     try {
         let url = req.url;
@@ -380,6 +490,9 @@ new Server(async (req, res) => {
             case '/users.json':
                 await users_json(req, res);
                 break;
+            case '/notifications.json':
+                await notifications_json(req, res);
+                break;
             default:
                 res.statusCode = 404;
                 res.end(`Resource ${req.url} not found.`);
@@ -391,4 +504,40 @@ new Server(async (req, res) => {
         res.end();
     }
 }).listen(PORT);
+
+const db = getFirestore(auth.app);
+let awfulHackyIsFirstSnapshot = true;
+db.collection('messages').onSnapshot(async snapshot => {
+    try {
+        // Firebase does not distinguish between messages that are "new to your instance" and "new to the entire database",
+        //  so when the server reboots, it is told that every single message in the database has just been "added".
+        // Therefore, ignore that first round of messages.
+        if (awfulHackyIsFirstSnapshot) {
+            awfulHackyIsFirstSnapshot = false;
+            return;
+        }
+        // In the long term, we should probably add a "notified"-type field to each message,
+        //  so we can write a query asking for unnotified messages and therefore not crash the server on startup
+        //  due to downloading 5 years worth of messages all at once.
+    
+        for (const docChange of snapshot.docChanges()) {
+            if (docChange.type !== 'added') {
+                continue;
+            }
+            const data = docChange.doc.data();
+            console.log('Sending notification of message', data, 'to uid', data.to);
+            const fromDoc = await getFirestore(auth.app).doc(`users/${data.from}`).get();
+            const fromName = fromDoc.data().name;
+            // console.log(docChange.oldIndex, docChange.newIndex);
+            await notifications.notify(data.to, {
+                sound: 'default',
+                title: `Facial Analytics message from  ${fromName}`,
+                // body: 'From: Your secret admirer',
+                // data: { withSome: 'data' },
+            });
+        }
+    } catch (error) {
+        console.error(error);
+    }
+})
 

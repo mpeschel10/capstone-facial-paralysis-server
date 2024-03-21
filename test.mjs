@@ -1,5 +1,5 @@
-const SERVER_URL = 'http://127.0.0.1:17447'
-// const SERVER_URL = 'https://fa.mpeschel10.com'
+const SERVER_URL = 'http://127.0.0.1:17447';
+// const SERVER_URL = 'https://fa.mpeschel10.com';
 
 import assert from 'node:assert';
 
@@ -165,12 +165,32 @@ async function testUpdateAccount() {
 // Confirm it rejects valid token from non-admin user
 // Confirm it can create both patients and clinicians
 
+async function testRegisterPushToken() {
+    const result = await debugFetch(
+        SERVER_URL + "/notifications.json" + "?" + new URLSearchParams({token: idToken}), {
+        method: 'PUT',
+        body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
+    });
+    assert.strictEqual(result.status, 204);
+}
+
+async function testUnregisterPushToken() {
+    const result = await debugFetch(
+        SERVER_URL + "/notifications.json" + "?" + new URLSearchParams({token: idToken}), {
+        method: 'DELETE',
+        body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
+    });
+    assert.strictEqual(result.status, 204);
+}
+
 async function main() {
     await cleanup();
     await testCreateClinician();
     await testCreatePatient();
     await testGetAccount();
     await testUpdateAccount();
+    await testRegisterPushToken();
+    await testUnregisterPushToken();
 }
 
 await main();
