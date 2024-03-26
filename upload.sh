@@ -285,7 +285,9 @@ main() {
     KEY_PATH=$(ensure_local_ssh_key)
     ensure_can_ssh
     echo "Login command is:"
-    echo ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" $1
+    echo ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT"
+    echo ssh -i "$KEY_PATH" -F ssh_config "$SSH_ROOT" > remote.sh
+    chmod u+x remote.sh
     echo ""
     
     ensure_can_git_push

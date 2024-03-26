@@ -35,6 +35,7 @@ export const unregister = pushToken => {
     
     delete userTokens[pushToken];
     delete pushTokenToUserTokens[pushToken];
+    console.log(`After unregistering ${pushToken}, uidToUserTokens is now ${JSON.stringify(uidToUserTokens)}`);
 }
 
 export const register = (pushToken, uid) => {
@@ -47,4 +48,5 @@ export const register = (pushToken, uid) => {
     }
     userTokens[pushToken] = true;
     pushTokenToUserTokens[pushToken] = userTokens;
+    console.log(`After registering ${pushToken} to ${uid}, uidToUserTokens is now ${JSON.stringify(uidToUserTokens)}`);
 }

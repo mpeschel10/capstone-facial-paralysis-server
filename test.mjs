@@ -172,6 +172,7 @@ async function testRegisterPushToken() {
         body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
     });
     assert.strictEqual(result.status, 204);
+    console.log('Register push token OK');
 }
 
 async function testUnregisterPushToken() {
@@ -181,6 +182,7 @@ async function testUnregisterPushToken() {
         body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
     });
     assert.strictEqual(result.status, 204);
+    console.log('Unregister push token OK');
 }
 
 async function main() {
