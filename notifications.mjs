@@ -26,7 +26,7 @@ export const notify = async (uid, message) => {
     for (const chunk of chunks) {
         tickets.push(await expo.sendPushNotificationsAsync(chunk));
     }
-    console.log('Sent messages:', tickets);
+    console.log('Sent messages:', JSON.stringify(tickets));
 }
 
 export const unregister = pushToken => {

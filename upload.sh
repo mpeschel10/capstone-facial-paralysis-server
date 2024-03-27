@@ -189,22 +189,22 @@ ensure_can_ssh() {
     }
     
     echo "ERROR:"
-    echo "A droplet virtual private server exists, but I cannot sign into it with your key."
+    echo "A server exists, but I cannot sign into it with your local key."
     echo "You will have to manually install your ssh key on the server."
-    echo "Go to https://cloud.digitalocean.com/projects/"
-    echo "Click on the facial-analytics project in the left sidebar."
-    echo "Click on the facial-analytics-server Droplet."
-    echo "Click on Access in the inner left sidebar."
-    echo "Click Launch Droplet Console."
-    echo "Type 'nano .ssh/authorized_keys'"
+    echo "Open the droplet console by following the instructions here: https://docs.digitalocean.com/products/droplets/how-to/connect-with-console/"
+    echo "    It's something like:"
+    echo "    Go to https://cloud.digitalocean.com/projects/"
+    echo "    Click on the facial-analytics project in the left sidebar."
+    echo "    Click on the facial-analytics-server Droplet."
+    echo "    Click on Access in the inner left sidebar."
+    echo "    Click Launch Droplet Console."
+    echo "Then paste in the following command:"
+    
+    PUBLIC_KEY=$(cat "$KEY_PATH.pub")
+    echo "echo \"$PUBLIC_KEY\" >> ~/.ssh/authorized_keys"
+
     echo "Press enter to confirm."
-    echo "Paste the contents of ${KEY_PATH}.pub in as the first line of that file."
-    echo "    (Try ctrl + shift + v or use the right-click menu)"
-    echo "    (You may need to press the enter key. Make sure the entire thing is on its own line)"
-    echo "Press ctrl + x (maybe command + x on mac?) to exit"
-    echo "Press y to save"
-    echo "Press enter to confirm"
-    echo "Then run this script again. Hopefully, you should not get this message a second time."
+    echo "Then run this script again. Hopefully, you should now have control of the droplet and won't get this message a second time."
     exit 5
 }
 
@@ -304,6 +304,9 @@ main() {
     ensure_ssl_certificate
 
     [ -e secrets/facial-analytics-key.json ] && scp -i "$KEY_PATH" -F ssh_config secrets/facial-analytics-key.json "$SSH_ROOT:/opt/facial-analytics/secrets"
+
+    echo ""
+    echo "Upload done."
 }
 
 main
