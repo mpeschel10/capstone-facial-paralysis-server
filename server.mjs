@@ -6,9 +6,7 @@ import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-import * as notifications from './notifications.mjs';
-
-import { Expo } from 'expo-server-sdk';
+import { getNotifications } from './notifications.mjs';
 
 if (! process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     process.env.GOOGLE_APPLICATION_CREDENTIALS = 'secrets/facial-analytics-key.json';
@@ -28,6 +26,7 @@ const app = initializeApp({
     credential: applicationDefault(),
 });
 const auth = getAuth(app);
+const notifications = getNotifications(app);
 
 const PORT = process.env.PORT ?? '17447';
 
@@ -410,12 +409,10 @@ async function PUT_notifications_json(req, res) {
         return;
     }
     
-    if (!Expo.isExpoPushToken(pushToken)) {
+    if (!await notifications.isValidToken(pushToken)) {
         res.statusCode = 400;
         res.end(
-            'You must give this endpoint an Expo push token in your request body.\r\n' +
-            'A push token is a string of the form "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"\r\n' +
-            ' which can usually be obtained like (await Notifications.getExpoPushTokenAsync({projectId})).data'
+            'You must give this endpoint a push token in your request body.\r\n'
         );
         return;
     }
@@ -437,16 +434,6 @@ async function DELETE_notifications_json(req, res) {
         return;
     }
     
-    if (!Expo.isExpoPushToken(pushToken)) {
-        res.statusCode = 400;
-        res.end(
-            'You must give this endpoint an Expo push token in your request body.\r\n' +
-            'A push token is a string of the form "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"\r\n' +
-            ' which can usually be obtained like (await Notifications.getExpoPushTokenAsync({projectId})).data'
-        );
-        return;
-    }
-
     console.log(`Unregistering push token ${pushToken}`);
     notifications.unregister(pushToken);
     res.statusCode = 204;
@@ -528,11 +515,16 @@ db.collection('messages').onSnapshot(async snapshot => {
             console.log('Sending notification of message', data, 'to uid', data.to);
             const fromDoc = await getFirestore(auth.app).doc(`users/${data.from}`).get();
             const fromName = fromDoc.data().name;
-            // console.log(docChange.oldIndex, docChange.newIndex);
+            
+            // Second argument to notifications.notify() should be as described here:
+            // https://firebase.google.com/docs/cloud-messaging/concept-options#notifications_and_data_messages
+            //  except for the "token" field, which should be filled by notify() based on notifications.register/unregister.
+            // Bugs will happen if you set the "token" field.
             await notifications.notify(data.to, {
-                sound: 'default',
-                title: `Facial Analytics message from  ${fromName}`,
-                // body: 'From: Your secret admirer',
+                notification: {
+                    title: `Facial Analytics message from ${fromName}`,
+                    body: `Facial Analytics message from ${fromName}`,
+                }
                 // data: { withSome: 'data' },
             });
         }

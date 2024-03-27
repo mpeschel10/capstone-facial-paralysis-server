@@ -169,7 +169,7 @@ async function testRegisterPushToken() {
     const result = await debugFetch(
         SERVER_URL + "/notifications.json" + "?" + new URLSearchParams({token: idToken}), {
         method: 'PUT',
-        body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
+        body: JSON.stringify('fDX4hhtGT1inIIiQqJPP3A:APA91bFDlP8MJpthuRRUxio9IVKfQsvTZtVtWh95B4eECHNk4CRI0j6JgJwlgFEjiOHHqJLO_Pxi_bDGhnu8aNaz2H27XGXcCallz32s8S46_N8TUBicT25175WlMu_fow06wrAe7Wyn')
     });
     assert.strictEqual(result.status, 204);
     console.log('Register push token OK');
@@ -179,7 +179,7 @@ async function testUnregisterPushToken() {
     const result = await debugFetch(
         SERVER_URL + "/notifications.json" + "?" + new URLSearchParams({token: idToken}), {
         method: 'DELETE',
-        body: JSON.stringify('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]')
+        body: JSON.stringify('fDX4hhtGT1inIIiQqJPP3A:APA91bFDlP8MJpthuRRUxio9IVKfQsvTZtVtWh95B4eECHNk4CRI0j6JgJwlgFEjiOHHqJLO_Pxi_bDGhnu8aNaz2H27XGXcCallz32s8S46_N8TUBicT25175WlMu_fow06wrAe7Wyn')
     });
     assert.strictEqual(result.status, 204);
     console.log('Unregister push token OK');
