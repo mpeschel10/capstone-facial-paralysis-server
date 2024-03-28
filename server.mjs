@@ -517,13 +517,21 @@ db.collection('messages').onSnapshot(async snapshot => {
             const fromName = fromDoc.data().name;
             
             // Second argument to notifications.notify() should be as described here:
-            // https://firebase.google.com/docs/cloud-messaging/concept-options#notifications_and_data_messages
+            // https://firebase.google.com/docs/reference/admin/node/firebase-admin.messaging.tokenmessage.md#tokenmessage_interface
+            //  with more fields here:
+            // https://firebase.google.com/docs/reference/admin/node/firebase-admin.messaging.basemessage.md#basemessage_interface
             //  except for the "token" field, which should be filled by notify() based on notifications.register/unregister.
             // Bugs will happen if you set the "token" field.
+            // Also more fields documented here:
             await notifications.notify(data.to, {
                 notification: {
-                    title: `Facial Analytics message from ${fromName}`,
+                    // title: `Facial Analytics message from ${fromName}`,
                     body: `Facial Analytics message from ${fromName}`,
+                },
+                android: {
+                    notification: {
+                        channelId: 'default',
+                    }
                 }
                 // data: { withSome: 'data' },
             });
