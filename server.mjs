@@ -531,6 +531,7 @@ db.collection('messages').onSnapshot(async snapshot => {
                 android: {
                     notification: {
                         channelId: 'default',
+                        body: `Facial Analytics message from ${fromName}`,
                     }
                 }
                 // data: { withSome: 'data' },
